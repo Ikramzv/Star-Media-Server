@@ -92,7 +92,7 @@ app.get("/", (req, res) => {
 mongoose
   .connect(process.env.MONGO_URL, { dbName: "ChatApp" })
   .then(() => {
-    console.log("Mongdb connected");
+    console.log("MongDB connected");
   })
   .catch((err) => console.log(err));
 
