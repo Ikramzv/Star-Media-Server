@@ -85,23 +85,31 @@ router.get("/", verify, async (req, res) => {
 
 router.get("/profile/:id", verify, async (req, res) => {
   const { id } = req.params;
+  let { since } = req.query;
+  since = since === "undefined" ? new Date() : new Date(since);
   try {
     const posts = await Post.aggregate([
       {
         $match: {
           userId: id,
-        },
-      },
-      {
-        $addFields: {
-          convertedUserId: {
-            $toObjectId: "$userId",
+          createdAt: {
+            $lt: since,
           },
         },
       },
       {
         $sort: {
           createdAt: -1,
+        },
+      },
+      {
+        $limit: 5,
+      },
+      {
+        $addFields: {
+          convertedUserId: {
+            $toObjectId: "$userId",
+          },
         },
       },
       {
