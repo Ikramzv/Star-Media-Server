@@ -3,12 +3,12 @@ const mongoose = require("mongoose");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const cors = require("cors");
-const userRouter = require("./routes/users.js");
-const authRouter = require("./routes/auth.js");
-const postRouter = require("./routes/posts.js");
-const ConversationRouter = require("./routes/Conversations.js");
-const MessageRouter = require("./routes/Messages.js");
 const { createServer } = require("http");
+const session = require("express-session");
+const Redis = require("ioredis");
+
+const RedisClient = new Redis();
+const RedisStore = require("connect-redis")(session);
 
 if (process.env.NODE_ENV !== "production") require("dotenv").config();
 
@@ -23,13 +23,32 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(helmet());
 app.use(morgan("common"));
 
+// SESSION
+
+app.use(
+  session({
+    name: "uid",
+    secret: process.env.SESSION_SECRET,
+    store: new RedisStore({ client: RedisClient, disableTouch: false }),
+    cookie: {
+      httpOnly: true,
+      secure: false,
+      maxAge: 1000 * 60 * 60,
+      sameSite: "lax",
+    },
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
 // ROUTES
 
-app.use("/users", userRouter);
-app.use("/auth", authRouter);
-app.use("/posts", postRouter);
-app.use("/conversations", ConversationRouter);
-app.use("/messages", MessageRouter);
+app.use("/users", require("./routes/users.js"));
+app.use("/auth", require("./routes/auth.js"));
+app.use("/posts", require("./routes/posts.js"));
+app.use("/conversations", require("./routes/Conversations.js"));
+app.use("/messages", require("./routes/Messages.js"));
+app.use("/comments", require("./routes/comments"));
 
 // ===
 
