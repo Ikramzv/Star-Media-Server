@@ -4,6 +4,8 @@ const verifyToken = require("./verify");
 
 const router = require("express").Router();
 
+// create comment
+
 router.post("/", verifyToken, async (req, res) => {
   const userId = req.user.id;
   const { postId, comment } = req.body;
@@ -15,6 +17,48 @@ router.post("/", verifyToken, async (req, res) => {
     return res.status(500).send(error.message);
   }
 });
+
+// edit comment
+
+router.patch("/:commentId", async (req, res) => {
+  try {
+    const updated = await Comment.findByIdAndUpdate(
+      req.params.commentId,
+      [
+        {
+          $set: {
+            comment: req.body.comment,
+          },
+        },
+      ],
+      { new: true }
+    );
+    console.log(req.params.commentId, req.body.comment, updated);
+    return res.status(200).json(updated);
+  } catch (error) {
+    return res.status(500).send(error.message);
+  }
+});
+
+// delete comment
+
+router.delete("/:commentId", verifyToken, async (req, res) => {
+  const comment = await Comment.findById(req.params.commentId);
+  console.log(comment, req.user.id, req.params.commentId);
+  if (req.user.id !== comment?.userId)
+    return res
+      .status(401)
+      .send("Only the owner of the comment can delete comment");
+
+  try {
+    await Comment.deleteOne();
+    return res.status(200).send("post deleted");
+  } catch (error) {
+    return res.status(500).send(error.message);
+  }
+});
+
+// get comments
 
 router.get("/comment/:postId", verifyToken, async (req, res) => {
   let { since } = req.query;
@@ -77,6 +121,8 @@ router.get("/comment/:postId", verifyToken, async (req, res) => {
     return res.status(500).send(error.message);
   }
 });
+
+// like comment
 
 router.patch("/like/:commentId", verifyToken, async (req, res) => {
   try {
