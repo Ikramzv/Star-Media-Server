@@ -44,6 +44,42 @@ const post_aggregate = (currentUser, req, since, additional) => {
       },
     },
     {
+      $lookup: {
+        from: "comments",
+        let: {
+          postId: "$_id",
+        },
+        as: "commentsCount",
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: [
+                  "$postId",
+                  {
+                    $toString: "$$postId",
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$postId",
+              count: {
+                $count: {},
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+            },
+          },
+        ],
+      },
+    },
+    {
       $project: {
         convertedUserId: 0,
       },
@@ -52,6 +88,25 @@ const post_aggregate = (currentUser, req, since, additional) => {
       $unwind: {
         path: "$user",
         preserveNullAndEmptyArrays: false,
+      },
+    },
+    {
+      $set: {
+        commentsCount: {
+          $ifNull: [
+            {
+              $arrayElemAt: ["$commentsCount", 0],
+            },
+            {
+              count: 0,
+            },
+          ],
+        },
+      },
+    },
+    {
+      $unwind: {
+        path: "$commentsCount",
       },
     },
   ];
