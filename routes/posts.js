@@ -142,7 +142,7 @@ router.get("/timeline/all", verify, async (req, res) => {
     const allPosts = await Post.aggregate(
       post_aggregate(currentUser, req, since)
     );
-    res.status(200).json(allPosts.sort((a, b) => b.createdAt - a.createdAt));
+    res.status(200).json(allPosts);
   } catch (err) {
     res.status(400).send(err.message);
   }
