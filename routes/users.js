@@ -121,11 +121,66 @@ router.get("/profile/:id", verify, async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "comments",
+          let: {
+            postId: "$_id",
+          },
+          as: "commentsCount",
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    "$postId",
+                    {
+                      $toString: "$$postId",
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: "$postId",
+                count: {
+                  $count: {},
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+              },
+            },
+          ],
+        },
+      },
+      {
         $unwind: "$user",
       },
       {
         $project: {
           convertedUserId: 0,
+        },
+      },
+      {
+        $set: {
+          commentsCount: {
+            $ifNull: [
+              {
+                $arrayElemAt: ["$commentsCount", 0],
+              },
+              {
+                count: 0,
+              },
+            ],
+          },
+        },
+      },
+      {
+        $unwind: {
+          path: "$commentsCount",
         },
       },
     ]);
