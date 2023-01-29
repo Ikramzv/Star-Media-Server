@@ -57,12 +57,20 @@ app.use("/comments", require("./routes/comments"));
 let users = [];
 
 const addUser = (userId, socketId) => {
-  !users.some((user) => user.userId === userId) &&
+  if (!users.some((user) => user.userId === userId)) {
     users.push({ userId, socketId });
+  } else {
+    users = users.map((user) =>
+      user.userId === userId ? { userId, socketId } : user
+    );
+  }
+
+  return users;
 };
 
 const removeUser = (socketId) => {
   users = users.filter((user) => user.socketId !== socketId);
+  return users;
 };
 
 const getUser = (userId) => {
@@ -71,11 +79,12 @@ const getUser = (userId) => {
 
 io.on("connection", (socket) => {
   // connection
-  console.log("user connected");
+  console.log("user connected", users);
 
   // take connected user id from client and send online user to client
   socket.on("sendUser", (userId) => {
-    addUser(userId, socket.id);
+    users = addUser(userId, socket.id);
+    console.log("send user", users);
     io.emit("getUsers", users);
   });
   // send message and get message
@@ -83,6 +92,7 @@ io.on("connection", (socket) => {
     "sendMessage",
     ({ senderId, receiverId, receiver, text, conversationId }) => {
       const user = getUser(receiverId);
+      console.log(user, users);
       // if there is a online friend send an event to client else don't send an event
       user &&
         socket.to(user.socketId).emit("getMessage", {
@@ -97,7 +107,7 @@ io.on("connection", (socket) => {
   // disconnection
   socket.on("disconnect", () => {
     console.log("a user disconnected");
-    removeUser(socket.id);
+    users = removeUser(socket.id);
     io.emit("getUsers", users);
   });
 });
