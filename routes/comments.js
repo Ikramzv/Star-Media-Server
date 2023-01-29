@@ -51,7 +51,7 @@ router.delete("/:commentId", verifyToken, async (req, res) => {
       .send("Only the owner of the comment can delete comment");
 
   try {
-    await Comment.deleteOne();
+    await comment.deleteOne();
     return res.status(200).send("post deleted");
   } catch (error) {
     return res.status(500).send(error.message);
@@ -80,7 +80,7 @@ router.get("/comment/:postId", verifyToken, async (req, res) => {
         },
       },
       {
-        $limit: 15,
+        $limit: 10,
       },
       {
         $lookup: {
