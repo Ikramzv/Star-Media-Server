@@ -7,8 +7,8 @@ const { createServer } = require("http");
 const session = require("express-session");
 const Redis = require("ioredis");
 
-const RedisClient = new Redis();
-const RedisStore = require("connect-redis")(session);
+// const RedisClient = new Redis();
+// const RedisStore = require("connect-redis")(session);
 
 if (process.env.NODE_ENV !== "production") require("dotenv").config();
 
@@ -25,21 +25,21 @@ app.use(morgan("common"));
 
 // SESSION
 
-app.use(
-  session({
-    name: "uid",
-    secret: process.env.SESSION_SECRET,
-    store: new RedisStore({ client: RedisClient, disableTouch: false }),
-    cookie: {
-      httpOnly: true,
-      secure: false,
-      maxAge: 1000 * 60 * 60,
-      sameSite: "lax",
-    },
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+// app.use(
+//   session({
+//     name: "uid",
+//     secret: process.env.SESSION_SECRET,
+//     store: new RedisStore({ client: RedisClient, disableTouch: false }),
+//     cookie: {
+//       httpOnly: true,
+//       secure: false,
+//       maxAge: 1000 * 60 * 60,
+//       sameSite: "lax",
+//     },
+//     resave: false,
+//     saveUninitialized: false,
+//   })
+// );
 
 // ROUTES
 
@@ -54,27 +54,28 @@ app.use("/comments", require("./routes/comments"));
 
 // SOCKET
 
-let users = [];
+let users = new Map();
+let sockets = new Map();
 
 const addUser = (userId, socketId) => {
-  if (!users.some((user) => user.userId === userId)) {
-    users.push({ userId, socketId });
+  if (!users.has(userId)) {
+    users.set(userId, { userId, socketId });
+    sockets.set(socketId, userId);
   } else {
-    users = users.map((user) =>
-      user.userId === userId ? { userId, socketId } : user
-    );
+    const user = users.get(userId);
+    users.set(userId, { userId, socketId });
+    sockets.delete(user.socketId);
+    sockets.set(socketId, userId);
   }
-
-  return users;
 };
 
 const removeUser = (socketId) => {
-  users = users.filter((user) => user.socketId !== socketId);
-  return users;
+  const userId = sockets.get(socketId);
+  users.delete(userId);
 };
 
 const getUser = (userId) => {
-  return users.find((user) => user.userId === userId);
+  return users.get(userId);
 };
 
 io.on("connection", (socket) => {
@@ -83,32 +84,31 @@ io.on("connection", (socket) => {
 
   // take connected user id from client and send online user to client
   socket.on("sendUser", (userId) => {
-    users = addUser(userId, socket.id);
-    console.log("send user", users);
-    io.emit("getUsers", users);
+    addUser(userId, socket.id);
+    io.emit("getUsers", Array.from(users.values()));
   });
   // send message and get message
   socket.on(
     "sendMessage",
     ({ senderId, receiverId, receiver, text, conversationId }) => {
       const user = getUser(receiverId);
-      console.log(user, users);
-      // if there is a online friend send an event to client else don't send an event
-      user &&
+      // if there is a online friend, send an event to client else don't send an event
+      if (user) {
         socket.to(user.socketId).emit("getMessage", {
           senderId,
           text,
           conversationId,
           receiver,
         });
+      }
     }
   );
 
   // disconnection
   socket.on("disconnect", () => {
     console.log("a user disconnected");
-    users = removeUser(socket.id);
-    io.emit("getUsers", users);
+    removeUser(socket.id);
+    io.emit("getUsers", Array.from(users.values()));
   });
 });
 
