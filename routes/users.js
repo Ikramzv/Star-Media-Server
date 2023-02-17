@@ -85,8 +85,8 @@ router.get("/", verify, async (req, res) => {
 
 router.get("/profile/:id", verify, async (req, res) => {
   const { id } = req.params;
-  let { since } = req.query;
-  since = since === "undefined" ? new Date() : new Date(since);
+  let since = req.query.since;
+  since = since ? new Date(since) : new Date();
   try {
     const posts = await Post.aggregate([
       {
