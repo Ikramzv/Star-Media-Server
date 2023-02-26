@@ -8,9 +8,10 @@ const router = require("express").Router();
 
 router.post("/", verifyToken, async (req, res) => {
   const userId = req.user.id;
-  const { postId, comment } = req.body;
+  const { postId, comment, _id } = req.body;
+  console.log(req.body, _id);
   try {
-    const c = await new Comment({ userId, postId, comment }).save();
+    const c = await new Comment({ userId, postId, comment, _id }).save();
 
     return res.status(200).json(c);
   } catch (error) {
@@ -33,7 +34,6 @@ router.patch("/:commentId", async (req, res) => {
       ],
       { new: true }
     );
-    console.log(req.params.commentId, req.body.comment, updated);
     return res.status(200).json(updated);
   } catch (error) {
     return res.status(500).send(error.message);
@@ -44,7 +44,6 @@ router.patch("/:commentId", async (req, res) => {
 
 router.delete("/:commentId", verifyToken, async (req, res) => {
   const comment = await Comment.findById(req.params.commentId);
-  console.log(comment, req.user.id, req.params.commentId);
   if (req.user.id !== comment?.userId)
     return res
       .status(401)
@@ -63,7 +62,6 @@ router.delete("/:commentId", verifyToken, async (req, res) => {
 router.get("/comment/:postId", verifyToken, async (req, res) => {
   let { since } = req.query;
   since = since ? new Date(since) : new Date();
-  console.log(since);
   try {
     const comments = await Comment.aggregate([
       {
