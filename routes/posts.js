@@ -3,6 +3,7 @@ const Post = require("../models/Post");
 const verify = require("./verify");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const Comment = require("../models/comment");
 const { post_aggregate } = require("../utils");
 
 const router = Router();
@@ -53,6 +54,9 @@ router.delete("/:id", verify, async (req, res) => {
   if (post.userId.toString() === req.user.id) {
     try {
       await post.deleteOne();
+      await Comment.deleteMany({
+        postId: post._id,
+      });
       res.status(200).send("Post has been deleted");
     } catch (err) {
       res.status(403).send(err.message);
