@@ -5,9 +5,10 @@ const morgan = require("morgan");
 const cors = require("cors");
 const { createServer } = require("http");
 const session = require("express-session");
-const Redis = require("ioredis");
+const MongoStore = require("connect-mongo");
 const cluster = require("cluster");
 const os = require("os");
+const Message = require("./models/Message.js");
 
 if (cluster.isPrimary) {
   const numCpus = os.cpus().length;
@@ -25,7 +26,12 @@ if (cluster.isPrimary) {
   const server = createServer(app);
   const io = require("socket.io")(server);
 
-  app.use(cors());
+  app.use(
+    cors({
+      credentials: true,
+      origin: process.env.APP_URL,
+    })
+  );
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -35,21 +41,27 @@ if (cluster.isPrimary) {
 
   // SESSION
 
-  // app.use(
-  //   session({
-  //     name: "uid",
-  //     secret: process.env.SESSION_SECRET,
-  //     store: new RedisStore({ client: RedisClient, disableTouch: false }),
-  //     cookie: {
-  //       httpOnly: true,
-  //       secure: false,
-  //       maxAge: 1000 * 60 * 60,
-  //       sameSite: "lax",
-  //     },
-  //     resave: false,
-  //     saveUninitialized: false,
-  //   })
-  // );
+  app.use(
+    session({
+      name: "uid",
+      secret: process.env.SESSION_SECRET,
+      store: MongoStore.create({
+        mongoUrl: process.env.MONGO_URL,
+        ttl: 1000 * 60 * 60,
+        collectionName: "sessions",
+        dbName: "ChatApp",
+        stringify: true,
+      }),
+      cookie: {
+        httpOnly: true,
+        secure: false,
+        maxAge: 1000 * 60 * 60,
+        sameSite: "lax",
+      },
+      resave: false,
+      saveUninitialized: false,
+    })
+  );
 
   // ROUTES
 
@@ -106,16 +118,32 @@ if (cluster.isPrimary) {
       ({ senderId, receiverId, receiver, text, conversationId }) => {
         const user = getUser(receiverId);
         // if there is a online friend, send an event to client else don't send an event
-        if (user) {
-          socket.to(user.socketId).emit("getMessage", {
-            senderId,
-            text,
-            conversationId,
-            receiver,
-          });
-        }
+        if (!user) return;
+
+        console.log(text);
+        socket.to(user.socketId).emit("getMessage", {
+          senderId,
+          text,
+          conversationId,
+          receiver,
+        });
       }
     );
+
+    socket.on("deleteMessage", (data) => {
+      const { receiverId } = data;
+      const user = getUser(receiverId);
+      if (!user) return;
+      socket.to(user.socketId).emit("deleteMessageClient", data);
+      // socket.to
+    });
+
+    socket.on("editMessage", (data) => {
+      const { receiverId } = data;
+      const user = getUser(receiverId);
+      if (!user) return;
+      socket.to(user.socketId).emit("editMessageClient", data);
+    });
 
     // disconnection
     socket.on("disconnect", () => {
@@ -125,6 +153,8 @@ if (cluster.isPrimary) {
       removeUser(socket.id);
       console.log(Array.from(users.values()));
       io.emit("getUsers", Array.from(users.values()));
+
+      socket.removeAllListeners();
     });
   });
 
@@ -145,6 +175,3 @@ if (cluster.isPrimary) {
     console.log("Server up and running on port 5000");
   });
 }
-
-// const RedisClient = new Redis();
-// const RedisStore = require("connect-redis")(session);
