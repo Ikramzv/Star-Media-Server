@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const User = require("../models/User.js");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const verify = require("./verify");
 
 const router = Router();
 
@@ -12,16 +12,14 @@ router.post("/register", async (req, res) => {
 
   try {
     const registeredUser = await user.save();
-    const payload = {
-      username: registeredUser.username,
-      isAdmin: registeredUser.isAdmin,
-      email: registeredUser.email,
-      id: registeredUser._id,
-    };
-    const accessToken = generateAccessToken(payload);
 
     const { password, ...others } = registeredUser._doc;
-    res.status(200).json({ ...others, accessToken });
+    req.session.user = {
+      id: user._id,
+      admin: false, // for now
+      username: user.username,
+    };
+    res.status(200).json(others);
   } catch (err) {
     res.status(400).send(err.message);
   }
@@ -37,22 +35,39 @@ router.post("/login", async (req, res) => {
     bcrypt.compare(req.body.password, user.password, (err, result) => {
       if (!result) return res.status(403).send("Invalid password");
       const { password, ...others } = user._doc;
-      const payload = {
-        username: user.username,
-        isAdmin: user.isAdmin,
-        email: user.email,
+
+      req.session.user = {
         id: user._id,
+        isAdmin: false, // for now
+        username: user.username,
       };
-      const accessToken = generateAccessToken(payload);
-      res.status(200).json({ ...others, accessToken });
+      res.status(200).json(others);
     });
   } catch (error) {
     res.status(403).send(error.message);
   }
 });
 
-function generateAccessToken(payload) {
-  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET);
-}
+router.post("/logout", async (req, res) => {
+  try {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json(err);
+      return res.clearCookie("uid").status(200).send("Logged out");
+    });
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+});
+
+// call me
+
+router.get("/me", verify, async (req, res) => {
+  try {
+    const me = await User.findById(req.user.id);
+    return res.status(200).json(me);
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+});
 
 module.exports = router;
