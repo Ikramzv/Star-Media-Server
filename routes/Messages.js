@@ -149,4 +149,44 @@ router.patch(
   }
 );
 
+// Delete message
+
+router.delete("/message/:id", verify, async (req, res) => {
+  try {
+    const msg = await Message.findById(req.params.id);
+    if (msg.sender !== req.user.id) {
+      return res
+        .status(401)
+        .json("Only an author of message can delete that message");
+    }
+
+    await msg.deleteOne();
+    return res.status(200).send("Message deleted succesfully");
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+});
+
+// edit message
+
+router.patch("/message/:id", verify, async (req, res) => {
+  try {
+    const updatedMsg = await Message.updateOne(
+      {
+        _id: req.params.id,
+        sender: req.user.id,
+      },
+      {
+        $set: {
+          text: req.body.msgText,
+        },
+      },
+      { new: true }
+    );
+    return res.status(200).json(updatedMsg);
+  } catch (error) {
+    return res.status(500).json(error);
+  }
+});
+
 module.exports = router;
