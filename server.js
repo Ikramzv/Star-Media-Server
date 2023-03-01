@@ -8,7 +8,6 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const cluster = require("cluster");
 const os = require("os");
-const Message = require("./models/Message.js");
 
 if (cluster.isPrimary) {
   const numCpus = os.cpus().length;
@@ -57,6 +56,7 @@ if (cluster.isPrimary) {
         secure: false,
         maxAge: 1000 * 60 * 60,
         sameSite: "lax",
+        domain: process.env.APP_URL,
       },
       resave: false,
       saveUninitialized: false,
