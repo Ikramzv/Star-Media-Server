@@ -9,6 +9,8 @@ const MongoStore = require("connect-mongo");
 const cluster = require("cluster");
 const os = require("os");
 
+const __prod__ = process.env.NODE_ENV === "production";
+
 if (cluster.isPrimary) {
   const numCpus = os.cpus().length;
   for (let i = 0; i < numCpus; i++) {
@@ -19,7 +21,7 @@ if (cluster.isPrimary) {
     cluster.fork();
   });
 } else {
-  if (process.env.NODE_ENV !== "production") require("dotenv").config();
+  if (!__prod__) require("dotenv").config();
 
   const app = express();
   const server = createServer(app);
@@ -31,6 +33,8 @@ if (cluster.isPrimary) {
       origin: process.env.APP_URL,
     })
   );
+
+  if (__prod__) app.set("trust proxy", 1);
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -53,10 +57,9 @@ if (cluster.isPrimary) {
       }),
       cookie: {
         httpOnly: true,
-        secure: false,
+        secure: __prod__,
         maxAge: 1000 * 60 * 60,
-        sameSite: "lax",
-        domain: process.env.APP_URL,
+        sameSite: __prod__ ? "none" : "lax",
       },
       resave: false,
       saveUninitialized: false,
