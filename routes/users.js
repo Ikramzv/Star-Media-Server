@@ -257,19 +257,15 @@ router.get("/followings/:id", async (req, res) => {
 
 // follow a user
 
-router.put("/:id/follow", async (req, res) => {
+router.put("/:id/follow", verify, async (req, res) => {
   const { id } = req.params;
-
-  req.user = {
-    id: "62deafee0c47b0fc410880c8",
-  };
 
   if (req.user.id === id) {
     return res.status(403).send("You can not follow yourself");
   }
 
   try {
-    const updateCurrentUser = await User.findByIdAndUpdate(req.user.id, [
+    await User.findByIdAndUpdate(req.user.id, [
       {
         $set: {
           followings: {
@@ -289,7 +285,7 @@ router.put("/:id/follow", async (req, res) => {
       },
     ]);
 
-    const updateUser = await User.findByIdAndUpdate(id, [
+    await User.findByIdAndUpdate(id, [
       {
         $set: {
           followers: {
@@ -308,9 +304,7 @@ router.put("/:id/follow", async (req, res) => {
         },
       },
     ]);
-    return res
-      .status(200)
-      .json({ current: updateCurrentUser, user: updateUser });
+    return res.sendStatus(200);
   } catch (error) {
     res.status(500).json(error.message);
   }
